@@ -258,20 +258,4 @@ const styles = StyleSheet.create({
     marginTop: 36,
     marginBottom: 16,
   },
-  footerText: {
-    color: 'rgba(255, 255, 255, 0.85)',
-    fontSize: 14,
-  },
-  footerLink: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  homeIndicator: {
-    width: 134,
-    height: 5,
-    backgroundColor: '#000000',
-    borderRadius: 3,
-    alignSelf: 'center',
-  },
-});
+
