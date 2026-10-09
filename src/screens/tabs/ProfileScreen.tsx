@@ -709,13 +709,4 @@ const styles = StyleSheet.create({
   topUpChipActive: {
     backgroundColor: '#445738',
     borderColor: '#445738',
-  },
-  topUpChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#445738',
-  },
-  topUpChipTextActive: {
-    color: '#ffffff',
-  },
-});
+ 
