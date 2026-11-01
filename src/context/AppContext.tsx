@@ -30,6 +30,7 @@ export interface UserProfile {
   address: string;
   dob: string;
   gender: string;
+  avatarUri: string | null;
   balance: number;
   tier: string;
 }
@@ -350,6 +351,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     address: 'Malang, Jawa Timur',
     dob: '11 Mei 2002',
     gender: 'Female',
+    avatarUri: null,
     balance: 150000,
     tier: 'Platinum Member',
   });
@@ -485,6 +487,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       address: 'Malang, Jawa Timur',
       dob: '11 Mei 2002',
       gender: 'Female',
+      avatarUri: null,
       balance: 150000,
       tier: 'Platinum Member',
     });

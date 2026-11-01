@@ -512,7 +512,7 @@ export const HomeScreen: React.FC = () => {
               style={styles.avatarWrapper}
             >
               <Image
-                source={AppAssets.avatarYaasmin}
+                source={user.avatarUri ? { uri: user.avatarUri } : AppAssets.avatarYaasmin}
                 style={styles.avatarImage}
                 resizeMode="cover"
               />

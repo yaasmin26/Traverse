@@ -8,9 +8,11 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useApp } from '../../context/AppContext';
 import { AppAssets } from '../../assets';
 import { AppInput } from '../../components/AppInput';
@@ -18,7 +20,7 @@ import { ProgressBar } from '../../components/ProgressBar';
 import { colors } from '../../theme/colors';
 
 export const ProfileSetupScreen: React.FC = () => {
-  const { navigate, user, setUser, profileStep, setProfileStep } = useApp();
+  const { navigate, user, setUser, updateUser, profileStep, setProfileStep } = useApp();
 
   // Step 1 state
   const [fullName, setFullName] = useState('Yaasmin');
@@ -28,9 +30,6 @@ export const ProfileSetupScreen: React.FC = () => {
 
   // Step 2 state
   const [username, setUsername] = useState('Yaasmin');
-
-  // Step 3 state
-  const [selectedPhoto, setSelectedPhoto] = useState<boolean>(true);
 
   // Step 4 state
   const [transportTypes, setTransportTypes] = useState<string[]>(['Bus']);
@@ -63,6 +62,34 @@ export const ProfileSetupScreen: React.FC = () => {
       setProfileStep(profileStep - 1);
     } else {
       navigate('VerifyNumber');
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    try {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert(
+          'Izin kamera diperlukan',
+          'Izinkan akses kamera untuk mengambil foto profil.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled) {
+        updateUser({ avatarUri: result.assets[0].uri });
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Terjadi kesalahan yang tidak diketahui.';
+      Alert.alert('Kamera tidak dapat dibuka', message);
     }
   };
 
@@ -187,23 +214,30 @@ export const ProfileSetupScreen: React.FC = () => {
             <View style={styles.stepContainer}>
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => setSelectedPhoto(!selectedPhoto)}
+                onPress={handleTakePhoto}
                 style={styles.avatarCircle}
               >
-                {selectedPhoto ? (
+                {user.avatarUri ? (
+                  <Image
+                    source={{ uri: user.avatarUri }}
+                    style={styles.avatarSetupImage}
+                    resizeMode="cover"
+                  />
+                ) : (
                   <Image
                     source={AppAssets.avatarYaasmin}
                     style={styles.avatarSetupImage}
                     resizeMode="cover"
                   />
-                ) : (
-                  <Ionicons name="camera-outline" size={72} color="#000000" />
                 )}
+                <View style={styles.cameraBadge}>
+                  <Ionicons name="camera" size={20} color="#ffffff" />
+                </View>
               </TouchableOpacity>
 
               <Text style={styles.stepTitle}>Profile picture</Text>
               <Text style={styles.stepSubtitle}>
-                Choose a picture for your profile account . You can always change it later.
+                Take a photo for your profile. You can always change it later.
               </Text>
             </View>
           )}
@@ -405,6 +439,17 @@ const styles = StyleSheet.create({
   avatarSetupImage: {
     width: '100%',
     height: '100%',
+  },
+  cameraBadge: {
+    position: 'absolute',
+    right: 4,
+    bottom: 4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primaryDark,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   usernameInputBox: {
     width: '100%',
