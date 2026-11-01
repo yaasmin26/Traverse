@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,21 +17,83 @@ import { useApp } from '../../context/AppContext';
 import { AppAssets } from '../../assets';
 import { AppInput } from '../../components/AppInput';
 import { colors } from '../../theme/colors';
+import { apiService, ApiError } from '../../services/apiService';
+import { networkService } from '../../services/networkService';
 
 export const SignInScreen: React.FC = () => {
   const { navigate, setUser } = useApp();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [loginError, setLoginError] = useState<ApiError | null>(null);
 
-  const handleLogin = () => {
-    if (username.trim()) {
-      setUser((prev) => ({
-        ...prev,
-        name: username.trim(),
-        username: username.trim(),
-      }));
+  const handleLogin = async () => {
+    setLoginError(null);
+
+    // 1. Validasi Input
+    if (!username.trim() || !password.trim()) {
+      Alert.alert('Perhatian', 'Harap isi username dan password!');
+      return;
     }
-    navigate('MainTabs');
+
+    // 2. [HANDLE OFFLINE] Cek koneksi internet
+    if (!networkService.isConnected()) {
+      Alert.alert(
+        'Mode Offline',
+        'Tidak ada koneksi internet. Apakah Anda ingin tetap masuk dalam Mode Offline (Tamu)?',
+        [
+          { text: 'Batal', style: 'cancel' },
+          {
+            text: 'Masuk Offline',
+            onPress: () => {
+              setUser((prev) => ({
+                ...prev,
+                name: username.trim() || 'Tamu Offline',
+                username: username.trim() || 'offline_user',
+              }));
+              navigate('MainTabs');
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    // 3. [STATE LOADING & API ERROR HANDLING]
+    setIsLoading(true);
+    try {
+      const response = await apiService.login(username, password);
+
+      if (response.error) {
+        // [API ERROR] Simpan status error dan tampilkan notifikasi
+        setLoginError(response.error);
+        Alert.alert(
+          'Gagal Masuk',
+          `${response.error.message}\n(${response.error.code})`,
+          [
+            { text: 'Batal', style: 'cancel' },
+            { text: 'Coba Lagi (Retry)', onPress: () => handleLogin() },
+          ]
+        );
+      } else {
+        // Sukses Login
+        setUser((prev) => ({
+          ...prev,
+          name: username.trim(),
+          username: username.trim(),
+        }));
+        navigate('MainTabs');
+      }
+    } catch (err: any) {
+      setLoginError({
+        code: 'NETWORK_ERROR',
+        message: 'Terjadi kesalahan jaringan.',
+        details: err?.message,
+        timestamp: new Date().toLocaleTimeString('id-ID'),
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -102,12 +165,29 @@ export const SignInScreen: React.FC = () => {
               <Text style={styles.forgotText}>Forgot Password ?</Text>
             </TouchableOpacity>
 
+            {/* Banner Error API Login */}
+            {loginError && (
+              <View style={styles.errorBannerBox}>
+                <Ionicons name="alert-circle-outline" size={16} color="#d32f2f" />
+                <Text style={styles.errorBannerText}>{loginError.message}</Text>
+              </View>
+            )}
+
+            {/* Tombol Login dengan State Loading & Retry */}
             <TouchableOpacity
               activeOpacity={0.85}
               onPress={handleLogin}
-              style={styles.loginBtn}
+              style={[styles.loginBtn, isLoading && { opacity: 0.8 }]}
+              disabled={isLoading}
             >
-              <Text style={styles.loginBtnText}>Login</Text>
+              {isLoading ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <ActivityIndicator size="small" color="#586d42" style={{ marginRight: 8 }} />
+                  <Text style={styles.loginBtnText}>Memproses...</Text>
+                </View>
+              ) : (
+                <Text style={styles.loginBtnText}>Login</Text>
+              )}
             </TouchableOpacity>
 
             <Text style={styles.orText}>or continue with</Text>
@@ -194,6 +274,23 @@ const styles = StyleSheet.create({
     color: '#fbfad5',
     fontSize: 13,
     fontWeight: '500',
+  },
+  errorBannerBox: {
+    backgroundColor: '#fff0f0',
+    borderColor: '#ffc9c9',
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  errorBannerText: {
+    color: '#d32f2f',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
   },
   loginBtn: {
     height: 52,

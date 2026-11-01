@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
   FlatList,
   Modal,
   Alert,
+  RefreshControl,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -19,6 +20,13 @@ import { colors } from '../../theme/colors';
 
 // [MODUL 1 - 3.2 EXTERNAL STYLING] Diimpor dari file terpisah src/theme/externalStyles.ts
 import { externalStyles } from '../../theme/externalStyles';
+
+// [MODUL API & OFFLINE] Penanganan API Error, State Loading/Error/Retry, dan Mode Offline
+import { OfflineBanner } from '../../components/OfflineBanner';
+import { ApiStateView } from '../../components/ApiStateView';
+import { ApiDemoBar } from '../../components/ApiDemoBar';
+import { apiService, ApiError } from '../../services/apiService';
+import { networkService } from '../../services/networkService';
 
 /**
  * ============================================================================
@@ -153,6 +161,81 @@ export const HomeScreen: React.FC = () => {
 
   /**
    * ============================================================================
+   * [MODUL API: PENANGANAN API ERROR, STATE LOADING/ERROR/RETRY, & HANDLE OFFLINE]
+   * ============================================================================
+   */
+  const [destinations, setDestinations] = useState<DestinationItem[]>(POPULAR_DESTINATIONS);
+  const [streetNews, setStreetNews] = useState<StreetNewsItem[]>(STREET_NEWS_DATA);
+  const [isLoadingApi, setIsLoadingApi] = useState<boolean>(false);
+  const [apiError, setApiError] = useState<ApiError | null>(null);
+  const [isFromCache, setIsFromCache] = useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [isOffline, setIsOffline] = useState<boolean>(!networkService.isConnected());
+
+  // 3. HANDLE OFFLINE: Berlangganan status koneksi jaringan
+  useEffect(() => {
+    const unsub = networkService.addListener((online) => {
+      setIsOffline(!online);
+      // Ketika koneksi pulih setelah error offline, lakukan refresh otomatis
+      if (online && apiError?.code === 'OFFLINE') {
+        fetchHomeApiData();
+      }
+    });
+    return () => unsub();
+  }, [apiError]);
+
+  // 2. STATE LOADING, ERROR, RETRY: Fungsi pemanggilan API
+  const fetchHomeApiData = useCallback(async (isPullRefresh = false) => {
+    if (isPullRefresh) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoadingApi(true);
+    }
+    setApiError(null);
+
+    try {
+      const [destRes, newsRes] = await Promise.all([
+        apiService.getDestinations(),
+        apiService.getStreetNews(),
+      ]);
+
+      // Tangani respon destinasi & kemungkinan error API
+      if (destRes.error) {
+        setApiError(destRes.error);
+        if (destRes.data && destRes.data.length > 0) {
+          setDestinations(destRes.data);
+          setIsFromCache(true);
+        }
+      } else if (destRes.data) {
+        setDestinations(destRes.data);
+        setIsFromCache(false);
+      }
+
+      // Tangani respon berita lalu lintas
+      if (newsRes.data) {
+        setStreetNews(newsRes.data);
+      }
+    } catch (err: any) {
+      // 1. API ERROR: Menangkap kegagalan jaringan tak terduga
+      setApiError({
+        code: 'NETWORK_ERROR',
+        message: 'Gagal terhubung ke endpoint API server.',
+        details: err?.message || 'Network request failed',
+        timestamp: new Date().toLocaleTimeString('id-ID'),
+      });
+    } finally {
+      setIsLoadingApi(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  // Memanggil API saat komponen pertama kali dimuat
+  useEffect(() => {
+    fetchHomeApiData();
+  }, [fetchHomeApiData]);
+
+  /**
+   * ============================================================================
    * [MODUL 1 - 5.3.B CUSTOM FUNCTIONS & OPERASI CRUD]
    * ============================================================================
    */
@@ -200,7 +283,11 @@ export const HomeScreen: React.FC = () => {
             : plan
         )
       );
-      Alert.alert('Sukses', 'Rencana perjalanan berhasil diperbarui!');
+      if (!networkService.isConnected()) {
+        Alert.alert('Sukses (Offline)', 'Rencana diperbarui dan disimpan secara lokal (Offline Cache).');
+      } else {
+        Alert.alert('Sukses', 'Rencana perjalanan berhasil diperbarui!');
+      }
     } else {
       // Operasi CREATE
       const newPlan: TravelPlanItem = {
@@ -211,7 +298,11 @@ export const HomeScreen: React.FC = () => {
         notes: inputNotes.trim(),
       };
       setTravelPlans((prev) => [newPlan, ...prev]);
-      Alert.alert('Sukses', 'Rencana perjalanan baru berhasil ditambahkan!');
+      if (!networkService.isConnected()) {
+        Alert.alert('Sukses (Offline)', 'Rencana berhasil ditambahkan ke draft offline perangkat.');
+      } else {
+        Alert.alert('Sukses', 'Rencana perjalanan baru berhasil ditambahkan!');
+      }
     }
 
     setModalVisible(false);
@@ -383,7 +474,21 @@ export const HomeScreen: React.FC = () => {
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={() => fetchHomeApiData(true)}
+            colors={['#586d42']}
+            tintColor="#586d42"
+          />
+        }
       >
+        {/* [3. HANDLE OFFLINE] Banner Peringatan Status Jaringan Offline */}
+        <OfflineBanner onCheckConnection={() => fetchHomeApiData()} />
+
+        {/* [1. API ERROR & DEMO] Panel Pengujian Simulasi API & Toggle Offline */}
+        <ApiDemoBar onTriggerReload={() => fetchHomeApiData()} />
+
         {/* Header Hijau Gelap sesuai Figma */}
         <LinearGradient
           colors={['#586d42', '#69834e', '#7b9859']}
@@ -486,16 +591,31 @@ export const HomeScreen: React.FC = () => {
           {/* Section: Popular Destinations (Loop FlatList) */}
           <View style={externalStyles.sectionHeader}>
             <Text style={externalStyles.sectionTitle}>Popular destinations</Text>
+            {isFromCache && (
+              <View style={styles.offlineCacheTag}>
+                <Ionicons name="cloud-offline" size={11} color="#b85d19" />
+                <Text style={styles.offlineCacheTagText}>Offline (Cache)</Text>
+              </View>
+            )}
           </View>
 
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={POPULAR_DESTINATIONS}
-            renderItem={renderDestinationCard}
-            keyExtractor={(item) => item.id}
-            contentContainerStyle={styles.destScroll}
-          />
+          {/* [2. STATE: LOADING, ERROR, RETRY] untuk Destinasi Populer */}
+          <ApiStateView
+            isLoading={isLoadingApi}
+            error={apiError}
+            onRetry={() => fetchHomeApiData()}
+            isFromCache={isFromCache}
+            loadingMessage="Memuat destinasi populer..."
+          >
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={destinations}
+              renderItem={renderDestinationCard}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.destScroll}
+            />
+          </ApiStateView>
 
           {/**
            * ============================================================================
@@ -565,11 +685,26 @@ export const HomeScreen: React.FC = () => {
           {/* Section: Latest Street News */}
           <View style={externalStyles.sectionHeader}>
             <Text style={externalStyles.sectionTitle}>Latest Street News</Text>
+            {isFromCache && (
+              <View style={styles.offlineCacheTag}>
+                <Ionicons name="cloud-offline" size={11} color="#b85d19" />
+                <Text style={styles.offlineCacheTagText}>Offline (Cache)</Text>
+              </View>
+            )}
           </View>
 
-          <View style={styles.newsRow}>
-            {STREET_NEWS_DATA.map((newsItem) => renderNewsCard(newsItem))}
-          </View>
+          {/* [2. STATE: LOADING, ERROR, RETRY] untuk Berita Jalanan */}
+          <ApiStateView
+            isLoading={isLoadingApi}
+            error={apiError}
+            onRetry={() => fetchHomeApiData()}
+            isFromCache={isFromCache}
+            loadingMessage="Memuat berita lalu lintas terbaru..."
+          >
+            <View style={styles.newsRow}>
+              {streetNews.map((newsItem) => renderNewsCard(newsItem))}
+            </View>
+          </ApiStateView>
         </View>
 
         {/* Spacer bawah untuk floating bottom bar */}
@@ -1127,5 +1262,21 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
     fontSize: 13,
+  },
+  offlineCacheTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff1e6',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ffd8be',
+  },
+  offlineCacheTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#b85d19',
+    marginLeft: 4,
   },
 });
