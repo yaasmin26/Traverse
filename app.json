@@ -2,20 +2,11 @@
   "expo": {
     "name": "Traverse",
     "slug": "traverse-app",
+    "scheme": "traverse",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "plugins": [
-      [
-        "expo-image-picker",
-        {
-          "photosPermission": false,
-          "cameraPermission": "Traverse memerlukan akses kamera untuk mengambil foto profil.",
-          "microphonePermission": false
-        }
-      ]
-    ],
     "ios": {
       "supportsTablet": true
     },
