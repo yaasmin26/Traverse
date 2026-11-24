@@ -27,6 +27,8 @@ import { ApiStateView } from '../../components/ApiStateView';
 import { ApiDemoBar } from '../../components/ApiDemoBar';
 import { apiService, ApiError } from '../../services/apiService';
 import { networkService } from '../../services/networkService';
+import { cameraService } from '../../services/cameraService';
+import { TokenSessionModal } from '../../components/TokenSessionModal';
 
 /**
  * ============================================================================
@@ -142,7 +144,7 @@ const INITIAL_TRAVEL_PLANS: TravelPlanItem[] = [
 ];
 
 export const HomeScreen: React.FC = () => {
-  const { user, navigate } = useApp();
+  const { user, updateUser, navigate, logout, authToken } = useApp();
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('1');
 
@@ -158,6 +160,10 @@ export const HomeScreen: React.FC = () => {
   const [inputDate, setInputDate] = useState<string>('');
   const [inputTransport, setInputTransport] = useState<string>('Local Train');
   const [inputNotes, setInputNotes] = useState<string>('');
+  // [TUGAS ORANG 2: CONNECT KAMERA UNTUK FOTO DESTINASI RENCANA]
+  const [inputImageUri, setInputImageUri] = useState<string | null>(null);
+  // [TUGAS ORANG 1: ELVIRA - STATE MODAL SESI & TOKEN]
+  const [isSessionModalOpen, setIsSessionModalOpen] = useState<boolean>(false);
 
   /**
    * ============================================================================
@@ -245,18 +251,31 @@ export const HomeScreen: React.FC = () => {
     return `Rp ${amount.toLocaleString('id-ID')}`;
   };
 
-  // Helper Aksi Avatar / Logout
+  // [TUGAS ORANG 1 & 2: SESI TOKEN & CONNECT KAMERA DARI AVATAR]
   const handleAvatarPress = () => {
     Alert.alert(
-      'Profil Pengguna',
-      `Nama: ${user.name || 'Yaasmin'}\nEmail: ${user.email}\nSaldo: ${formatCurrency(user.balance)}`,
+      'Akun & Sesi Pengguna',
+      `Nama: ${user.name || 'Yaasmin'}\nEmail: ${user.email}\nSaldo: ${formatCurrency(user.balance)}\nToken: ${authToken ? authToken.substring(0, 18) + '...' : 'Tidak Ada'}`,
       [
-        { text: 'Tutup', style: 'cancel' },
+        {
+          text: '🛡️ Panel Sesi & Token (Orang 1)',
+          onPress: () => setIsSessionModalOpen(true),
+        },
+        {
+          text: '📷 Ganti Foto (Kamera/Galeri)',
+          onPress: () => {
+            cameraService.promptImageSource((uri) => {
+              updateUser({ avatarUri: uri });
+              Alert.alert('Sukses', 'Foto profil berhasil diperbarui via kamera/galeri!');
+            });
+          },
+        },
         {
           text: 'Keluar (Logout)',
           style: 'destructive',
-          onPress: () => navigate('LoginLanding'),
+          onPress: logout,
         },
+        { text: 'Tutup', style: 'cancel' },
       ]
     );
   };
@@ -488,6 +507,18 @@ export const HomeScreen: React.FC = () => {
 
         {/* [1. API ERROR & DEMO] Panel Pengujian Simulasi API & Toggle Offline */}
         <ApiDemoBar onTriggerReload={() => fetchHomeApiData()} />
+
+        {/* [TUGAS ORANG 1: ELVIRA - SESI, TOKEN JWT & PROTECT SESSION] */}
+        <TouchableOpacity
+          activeOpacity={0.85}
+          onPress={() => setIsSessionModalOpen(true)}
+          style={styles.sessionBadgeBtn}
+        >
+          <Ionicons name="shield-checkmark" size={14} color="#ffffff" style={{ marginRight: 6 }} />
+          <Text style={styles.sessionBadgeBtnText}>
+            Fitur Orang 1: Sesi & Token JWT ({authToken ? 'Token Aktif ✓' : 'Sesi Terkunci ⚠'})
+          </Text>
+        </TouchableOpacity>
 
         {/* Header Hijau Gelap sesuai Figma */}
         <LinearGradient
@@ -786,6 +817,24 @@ export const HomeScreen: React.FC = () => {
               onChangeText={setInputNotes}
             />
 
+            {/* [TUGAS ORANG 2: CONNECT KAMERA UNTUK FOTO DESTINASI] */}
+            <Text style={styles.modalLabel}>Foto Destinasi (Kamera / Galeri)</Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                cameraService.promptImageSource((uri) => {
+                  setInputImageUri(uri);
+                  Alert.alert('Foto Terpilih', 'Foto destinasi berhasil diambil dari kamera/galeri!');
+                });
+              }}
+              style={styles.modalCameraBtn}
+            >
+              <Ionicons name="camera-outline" size={18} color="#586d42" style={{ marginRight: 8 }} />
+              <Text style={styles.modalCameraBtnText}>
+                {inputImageUri ? '✓ Foto Terpilih (Klik untuk Ganti)' : '📷 Ambil Foto via Kamera / Galeri'}
+              </Text>
+            </TouchableOpacity>
+
             {/* Tombol Aksi Simpan / Batal */}
             <View style={styles.modalBtnRow}>
               <TouchableOpacity
@@ -807,6 +856,12 @@ export const HomeScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      {/* [TUGAS ORANG 1: ELVIRA - MODAL SESI, TOKEN JWT & PROTECT SESSION] */}
+      <TokenSessionModal
+        visible={isSessionModalOpen}
+        onClose={() => setIsSessionModalOpen(false)}
+      />
     </LinearGradient>
   );
 };
@@ -1263,6 +1318,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 13,
   },
+  modalCameraBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#7d995e',
+    backgroundColor: '#f3f7ed',
+    marginBottom: 10,
+  },
+  modalCameraBtnText: {
+    color: '#435332',
+    fontSize: 13,
+    fontWeight: '600',
+  },
   offlineCacheTag: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1278,5 +1350,23 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#b85d19',
     marginLeft: 4,
+  },
+  sessionBadgeBtn: {
+    marginHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: '#3b5228',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#54723c',
+  },
+  sessionBadgeBtnText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

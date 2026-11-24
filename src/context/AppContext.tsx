@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { Alert } from 'react-native';
 import { AppAssets } from '../assets';
 
 export type ScreenName =
@@ -127,6 +128,13 @@ interface AppContextType {
   setOnboardingStep: (step: number) => void;
   profileStep: number;
   setProfileStep: (step: number) => void;
+
+  // [TUGAS ORANG 1: AUTHENTICATION, TOKEN & PROTECT SESSION]
+  authToken: string | null;
+  setAuthToken: (token: string | null) => void;
+  isAuthenticated: boolean;
+  logout: () => void;
+  getAuthHeaders: () => Record<string, string>;
 
   // Travel Plan
   travelPlan: TravelPlanState;
@@ -343,6 +351,38 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [onboardingStep, setOnboardingStep] = useState<number>(1);
   const [profileStep, setProfileStep] = useState<number>(1);
 
+  // --------------------------------------------------------------------------
+  // [TUGAS ORANG 1: IMPLEMENT TOKEN, ATTACH TOKEN & PROTECT SESSION]
+  // --------------------------------------------------------------------------
+  const [authToken, setAuthTokenState] = useState<string | null>('traverse_jwt_mock_token_2026');
+  const isAuthenticated = !!authToken;
+
+  const setAuthToken = (token: string | null) => {
+    setAuthTokenState(token);
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        if (token) {
+          window.localStorage.setItem('traverse_auth_token', token);
+        } else {
+          window.localStorage.removeItem('traverse_auth_token');
+        }
+      }
+    } catch {}
+  };
+
+  const getAuthHeaders = (): Record<string, string> => {
+    return {
+      'Content-Type': 'application/json',
+      Authorization: authToken ? `Bearer ${authToken}` : '',
+    };
+  };
+
+  const logout = () => {
+    setAuthToken(null);
+    setCurrentScreen('LoginLanding');
+    Alert.alert('Sesi Berakhir', 'Anda telah berhasil logout. Token sesi telah dihapus.');
+  };
+
   const [user, setUser] = useState<UserProfile>({
     name: 'Yaasmin',
     username: 'Yaasmin',
@@ -495,7 +535,28 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setSavedPlans(initialSavedPlans);
   };
 
+  // [TUGAS ORANG 1: PROTECT SESSION NAVIGATOR GUARD]
   const navigate = (screen: ScreenName, tab?: TabName) => {
+    // Daftar halaman yang membutuhkan sesi terautentikasi (Protected Routes)
+    const protectedScreens: ScreenName[] = [
+      'MainTabs',
+      'ProfileSetup',
+      'TravelRecap',
+      'TicketBookingDetail',
+      'QRISPayment',
+      'PaymentReceipt',
+    ];
+
+    if (protectedScreens.includes(screen) && !authToken) {
+      Alert.alert(
+        'Akses Ditolak (Sesi Dilindungi)',
+        'Sesi login tidak ditemukan. Harap login terlebih dahulu untuk mengakses menu ini.',
+        [{ text: 'Ke Halaman Login', onPress: () => setCurrentScreen('SignIn') }]
+      );
+      setCurrentScreen('SignIn');
+      return;
+    }
+
     setScreenHistory((prev) => [...prev, currentScreen]);
     setCurrentScreen(screen);
     if (tab) {
@@ -529,6 +590,12 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
         navigate,
         goBack,
         setTab,
+        // [TUGAS ORANG 1: AUTH & TOKEN PROVIDER VALUE]
+        authToken,
+        setAuthToken,
+        isAuthenticated,
+        logout,
+        getAuthHeaders,
         user,
         setUser,
         updateUser,

@@ -18,13 +18,22 @@ import {
 import { useApp } from '../../context/AppContext';
 import { AppAssets } from '../../assets';
 import { colors } from '../../theme/colors';
+import { cameraService } from '../../services/cameraService';
 
 export const ProfileScreen: React.FC = () => {
-  const { user, updateUser, resetUserData, navigate } = useApp();
+  const { user, updateUser, resetUserData, navigate, logout, authToken } = useApp();
 
   // Modals
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [isTopUpOpen, setIsTopUpOpen] = useState(false);
+
+  // [TUGAS ORANG 2: CONNECT KAMERA UNTUK FOTO PROFIL]
+  const handleChangeAvatarWithCamera = () => {
+    cameraService.promptImageSource((uri) => {
+      updateUser({ avatarUri: uri });
+      Alert.alert('Sukses', 'Foto profil berhasil diperbarui melalui kamera/galeri!');
+    });
+  };
 
   // Edit Profile Form State
   const [formName, setFormName] = useState(user.name);
@@ -119,11 +128,11 @@ export const ProfileScreen: React.FC = () => {
     },
     {
       id: 'logout',
-      title: 'Log Out',
+      title: 'Log Out (Hapus Sesi & Token)',
       icon: (
-        <Ionicons name="arrow-back-outline" size={22} color={colors.primaryDark} />
+        <Ionicons name="log-out-outline" size={22} color="#d32f2f" />
       ),
-      action: () => navigate('LoginLanding'),
+      action: logout,
     },
   ];
 
@@ -148,11 +157,11 @@ export const ProfileScreen: React.FC = () => {
           <Text style={styles.headerTitle}>Personal Data</Text>
         </LinearGradient>
 
-        {/* Avatar Section overlapping Header */}
+        {/* Avatar Section overlapping Header (TUGAS ORANG 2: CONNECT KAMERA) */}
         <View style={styles.avatarSection}>
           <TouchableOpacity
             activeOpacity={0.8}
-            onPress={handleOpenEditProfile}
+            onPress={handleChangeAvatarWithCamera}
             style={styles.avatarWrapper}
           >
             <Image
@@ -161,7 +170,7 @@ export const ProfileScreen: React.FC = () => {
               resizeMode="cover"
             />
             <View style={styles.editAvatarBadge}>
-              <Ionicons name="pencil" size={14} color="#ffffff" />
+              <Ionicons name="camera" size={14} color="#ffffff" />
             </View>
           </TouchableOpacity>
           <View style={styles.nameRow}>

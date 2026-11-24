@@ -17,7 +17,7 @@ export const VerifyNumberScreen: React.FC = () => {
   const { navigate, goBack, user } = useApp();
   const [digits, setDigits] = useState<string[]>(['4', '2', '8', '']);
   const [secondsLeft, setSecondsLeft] = useState(54);
-  const inputRefs = useRef<Array<TextInput | null>>([]);
+  const inputRefs = useRef<Array<any>>([]);
 
   useEffect(() => {
     const timer = setInterval(() => {

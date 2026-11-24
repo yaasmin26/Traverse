@@ -522,7 +522,7 @@ export default function TodoListApp() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <StatusBar barStyle="dark-content" />
 
       {/* Top Header Aplikasi Sesuai Target Mockup */}
       <View style={styles.header}>

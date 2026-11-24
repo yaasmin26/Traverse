@@ -21,9 +21,9 @@ import { apiService, ApiError } from '../../services/apiService';
 import { networkService } from '../../services/networkService';
 
 export const SignInScreen: React.FC = () => {
-  const { navigate, setUser } = useApp();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const { navigate, setUser, setAuthToken } = useApp();
+  const [username, setUsername] = useState('Elvira');
+  const [password, setPassword] = useState('password123');
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState<ApiError | null>(null);
 
@@ -46,6 +46,7 @@ export const SignInScreen: React.FC = () => {
           {
             text: 'Masuk Offline',
             onPress: () => {
+              setAuthToken(`offline_token_${Date.now()}`);
               setUser((prev) => ({
                 ...prev,
                 name: username.trim() || 'Tamu Offline',
@@ -76,7 +77,10 @@ export const SignInScreen: React.FC = () => {
           ]
         );
       } else {
-        // Sukses Login
+        // [TUGAS ORANG 1: IMPLEMENT TOKEN] Simpan token JWT sesi login yang valid
+        if (response.data?.token) {
+          setAuthToken(response.data.token);
+        }
         setUser((prev) => ({
           ...prev,
           name: username.trim(),
@@ -135,6 +139,14 @@ export const SignInScreen: React.FC = () => {
 
           {/* Form Fields */}
           <View style={styles.formArea}>
+            {/* [TUGAS ORANG 1: ELVIRA - IMPLEMENT TOKEN & PROTECT SESSION] */}
+            <View style={styles.badgeOrang1Box}>
+              <Ionicons name="shield-checkmark" size={13} color="#fbfad4" style={{ marginRight: 6 }} />
+              <Text style={styles.badgeOrang1Text}>
+                Fitur Orang 1: Autentikasi Token & Protect Session
+              </Text>
+            </View>
+
             <AppInput
               label="Email / Username"
               value={username}
@@ -264,6 +276,22 @@ const styles = StyleSheet.create({
   },
   formArea: {
     gap: 12,
+  },
+  badgeOrang1Box: {
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.35)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  badgeOrang1Text: {
+    color: '#fbfad4',
+    fontSize: 11,
+    fontWeight: '700',
   },
   forgotBtn: {
     alignSelf: 'flex-end',
